@@ -1,0 +1,170 @@
+/* Define button style */
+.button {
+    background-color: #f1f1f1;
+    border: 1px solid #ccc;
+    color: #333;
+    padding: 5px 20px;
+    text-align: center;
+    text-decoration: none;
+    display: inline-block;
+    font-size: 16px;
+    margin: 4px 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: background-color 0.3s ease, border-color 0.3s ease;
+}
+
+/* Hover effect */
+.button:hover {
+    background-color: #ccc;
+    border-color: #999;
+}
+
+/* Hover effect */
+.button:hover {
+    background-color: #ccc;
+    border-color: #999;
+}
+
+.button:active {
+    background-color: #999;
+    /* Even darker grey */
+    border-color: #666;
+    /* Dark grey for border */
+}
+
+body {
+    font-family: Arial, sans-serif;
+    background-color: #f0f0f0;
+    overflow: auto;
+    margin: 0px;
+}
+
+.search-bar {
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto 0px auto;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.search-bar input[type="text"] {
+    width: 80%;
+    padding: 10px;
+    border: none;
+    border-radius: 20px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24);
+}
+
+.container {
+    width: 100%;
+    max-width: 600px;
+    margin: 0 auto;
+    overflow-y: scroll;
+    height: calc(100vh - 83px);
+    scrollbar-width: none;
+    /* For Firefox */
+    -ms-overflow-style: none;
+    /* For Internet Explorer and Edge */
+    box-sizing: border-box;
+    /* Ensure padding and border are included in width */
+}
+
+.container::-webkit-scrollbar {
+    width: 0px;
+    /* For Chrome, Safari, and Opera */
+}
+
+.tweet {
+    width: 100%;
+    border: 1px solid #ddd;
+    padding: 20px;
+    margin-bottom: 20px;
+    border-radius: 5px;
+    overflow: hidden;
+    background-color: #fff;
+    box-sizing: border-box;
+    /* Ensure padding and border are included in width */
+}
+
+.tweet img:not(.fullscreen) {
+    width: 30%;
+    height: 100px;
+}
+
+.tweet img {
+    padding: 1px;
+    object-fit: contain;
+    cursor: pointer;
+}
+
+.tweet .timestampfooter {
+    font-size: 0.8em;
+    color: #777;
+}
+
+.fullscreen {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%;
+    height: 100%;
+    z-index: 9999;
+    object-fit: contain;
+    background-color: #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+}
+
+.title-text {
+    margin: 0px;
+}
+
+.timestampfooter {
+    display: flex;
+    justify-content: space-between;
+}
+
+.status-text {
+    color: rgb(255, 0, 0);
+}
+
+.status-text.status_1 {
+    color: inherit;
+}
+
+.timestamp-text {
+    margin-bottom: 0px;
+}
+
+.notification {
+    margin: 0px 0px;
+}
+.video-container {
+    width: 100%;
+    max-width: 600px;
+    margin: 20px auto;
+    border: 1px solid #ddd;
+    padding: 20px;
+    border-radius: 5px;
+    overflow: hidden;
+    background-color: #fff;
+    box-sizing: border-box;
+}
+
+video {
+    max-width: 100%;  /* Maximum width */
+    max-height: 100%; 
+    display: block;   
+    margin: auto;    
+}
+
+.video-title {
+    font-size: 1.2em;
+    margin-bottom: 10px;
+}

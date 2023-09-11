@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="./download.js"></script>
+    <script src="./local_page.js"></script>
+    <link rel="StyleSheet" href="./local_page.css" type="text/css" />
+
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <style>
+
+    </style>
+    <script src="./unpkg.com_hyperlist@1.0.0_dist_hyperlist.js"></script>
+
+</head>
+
+<body>
+    <div class="search-bar">
+        <input id="search-input" type="text" placeholder="Search videos..." oninput="onSearch()">
+        <div class="notification">
+            <p id="storage-notification">已使用空间: 未知</p>
+        </div>
+    </div>
+    <div style="display: none;" id="deletingPannel" class="fullscreen">
+        <p>删除中,请稍后.</p>
+        <p id="deletingProgress"></p>
+    </div>
+    <div class="container"></div>
+    <script>
+        const container = document.querySelector('.container');
+        var searchBar = document.querySelector('.search-bar');
+        var styles = window.getComputedStyle(searchBar);
+        var margin = parseFloat(styles['marginTop']) + parseFloat(styles['marginBottom']);
+
+        var searchBarHeight = searchBar.offsetHeight + margin;
+        let allM3u8Keys = [];
+        let data = allM3u8Keys;
+        function generateConfig(data) {
+            return config = {
+                height: window.innerHeight - searchBarHeight,
+                itemHeight: 500, // Approximate height of a tweet
+                total: data.length, // Total number of tweets
+                generate(index) {
+                    let element = data[index];
+
+                    // Generate a tweet.
+                    const tweet = document.createElement('div');
+                    tweet.classList.add('tweet');
+                    tweet.innerHTML = `
+                    <div class="images">
+                    </div>
+                    <div class="title">
+                        <a id="titleLink" target="_blank" class="title-text"></a>
+                    </div>
+                    <div class="buttons">
+                        <a id="playBtn" target="_blank" class="button">播放</a>
+                        <a id="originalLink" target="_blank" class="button">原视频网站</a>
+                        <button id="deleteBtn" class="button">删除</button>
+                    </div>
+                    <div class="timestampfooter">
+                        <p id="statusText" class="status-text status_${parseInt(element.status)}"><p>
+                        <p id="timestamp" class="timestamp-text"></p>
+                    </div>
+                `;
+                    tweet.querySelector("#statusText").innerText = GetDownloadStatusStr(element.status)
+                    tweet.querySelector("#timestamp").innerText = `下载于: ${timestampToFormattedDate(element.saveTime)}`
+                    tweet.querySelector('#titleLink').innerText = element.title;
+                    tweet.querySelector('#titleLink').href = "./local_video_player.html#" + element.m3u8Url;
+                    tweet.querySelector("#deleteBtn").onclick = () => {
+                        deleteVideo(element.m3u8Url)
+                    }
+                    tweet.querySelector("#originalLink").href =  element.pageUrl;
+
+                    tweet.querySelector("#playBtn").href = "./local_video_player.html#" + element.m3u8Url;
+                    container.appendChild(tweet);
+
+                    var styles = window.getComputedStyle(tweet);
+                    var margin = parseFloat(styles['marginTop']) + parseFloat(styles['marginBottom']);
+
+                    var newHeight = tweet.offsetHeight + margin;
+
+                    return { element: tweet, height: newHeight };
+                }
+            };
+
+        }
+        var list = undefined
+
+        function onSearch() {
+            let keywords = document.querySelector('#search-input').value;
+            const searchData = data.filter(x => x.title.indexOf(keywords) != -1);
+            list.refresh(container, generateConfig(searchData));
+        }
+
+        loadData()
+
+        async function loadData() {
+            await new Promise(r => setTimeout(r, 500));
+            requestStorageEstimate();
+            allM3u8Keys = await regexMatchKeys('m3u8s', '.');
+            data = [];
+            for (let i in allM3u8Keys) {
+                const key = allM3u8Keys[i]
+                let m3u8Data = await readFromIndexedDB('m3u8s-mini', key);
+                data.push(m3u8Data);
+                console.log(m3u8Data)
+            }
+            data.sort((l, r) => r.saveTime - l.saveTime)
+            list = new HyperList(container, generateConfig(data));
+            cleanUselessVideos()
+        }
+
+        async function cleanUselessVideos() {
+            m3u8Ids = []
+            data.forEach(m3u8 => {
+                try {
+                    if (m3u8.m3u8Id) {
+                        m3u8Ids.push(m3u8.m3u8Id)
+                    }
+                } catch { }
+            })
+            console.log(m3u8Ids)
+            console.log(`(?<!${m3u8Ids.join('|')})$`)
+            uselessVideos = await regexMatchKeys('videos', `(?<!${m3u8Ids.join('|')})$`)
+            console.log(uselessVideos)
+
+            for (let i in uselessVideos) {
+                const videoKey = uselessVideos[i];
+                const m3u8Id = extractM3u8IdFromKey(videoKey);
+                const test = await regexMatchKeys('m3u8s', m3u8Id);
+                if (test.length == 0) {
+                    await deleteFromIndexedDB('videos', videoKey)
+                }
+            }
+        }
+
+        async function deleteVideo(m3u8Url) {
+            show(document.querySelector('#deletingPannel'))
+            let m3u8Data = undefined
+            for (let i in allM3u8Keys) {
+                const key = allM3u8Keys[i];
+                if (m3u8Url === key) {
+                    m3u8Data = await readFromIndexedDB('m3u8s', key);
+                }
+            }
+            if (m3u8Data == undefined) {
+                return;
+            }
+            await updateM3u8Status(m3u8Url, 2)
+            let tsFilesIds = await regexMatchKeys('videos', m3u8Data.m3u8Id + "$");
+            console.log(tsFilesIds)
+
+            for (let i in tsFilesIds) {
+                const id = tsFilesIds[i];
+                if (!(await deleteFromIndexedDB('videos', id))) {
+                    hide(document.querySelector('#deletingPannel'))
+                    return;
+                }
+                document.querySelector("#deletingProgress").innerText = `${parseInt(i) + 1}/${tsFilesIds.length}`
+            }
+            await deleteFromIndexedDB('m3u8s', m3u8Url);
+            data = data.filter(x => x.m3u8Url != m3u8Url);
+            onSearch()
+            hide(document.querySelector('#deletingPannel'))
+            // updatePassword()
+        }
+        async function debug(m3u8Url) {
+            let m3u8Data = undefined
+            for (let i in allM3u8Keys) {
+                const key = allM3u8Keys[i];
+                if (m3u8Url === key) {
+                    m3u8Data = await readFromIndexedDB('m3u8s', key);
+                }
+            }
+            if (m3u8Data == undefined) {
+                return;
+            }
+            let tsFilesIds = await regexMatchKeys('videos', m3u8Data.m3u8Id + "$");
+            console.log(tsFilesIds)
+        }
+
+        window.addEventListener("message", e => {
+            if (e.data.source == "VideoTogether") {
+                switch (e.data.type) {
+                    case 2010: {
+                        document.querySelector("#storage-notification").innerText = `已使用空间: ${parseInt(e.data.data.data.usageDetails.indexedDB / 1024 / 1024)}MB`
+                        console.log(e.data.data.data);
+                        break;
+                    }
+                }
+            }
+        })
+    </script>
+</body>
+
+</html>
