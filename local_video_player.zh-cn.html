@@ -3,8 +3,8 @@
 
 <head>
     <script src="./download.js"></script>
-    <script src="./local_page.js"></script>
-    <script src="./hls.js@1.2.1"></script>
+    <script src="./local_page.zh-cn.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.2.1"></script>
     <link rel="StyleSheet" href="./local_page.css" type="text/css" />
 
     <meta charset="utf-8">
@@ -19,6 +19,8 @@
         </video>
     </div>
     <script>
+        const language = 'zh-cn'
+
         const m3u8Url = (window.location.hash.substring(1));
         const m3u8ContentCache = {}
         const m3u8BlobUrlTom3u8Url = {}
@@ -35,7 +37,9 @@
             let hlsVideo = document.querySelector("#hlsVideo");
             hlsVideo.VideoTogetherDisabled = true;
             try {
-                if (Hls.isSupported()) {
+                if (Hls.isSupported()
+                    && false
+                ) {
                     var hls = new Hls({
                         pLoader: class CustomLoader extends Hls.DefaultConfig.loader {
                             load(context, config, callbacks) {
@@ -102,7 +106,7 @@
                         type: 2013,
                         data: swM3u8Content
                     });
-                    // TODO use sw for hls also
+                    // TODO use sw for hls
                     setTimeout(() => {
                         hlsVideo.src = `/fetch-current-m3u8-content`
                         hlsVideo.load()

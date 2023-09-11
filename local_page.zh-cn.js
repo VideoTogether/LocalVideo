@@ -1,13 +1,13 @@
 function GetDownloadStatusStr(status) {
     switch (status) {
         case 0:
-            return "{$DownloadStatusLabel0$}"
+            return "下载未完成"
         case 1:
-            return "{$DownloadStatusLabel1$}"
+            return "下载完成"
         case 2:
-            return "{$DownloadStatusLabel2$}"
+            return "删除失败,请重试"
         default:
-            return "{$DownloadStatusLabelError$}"
+            return "异常"
     }
 }
 

@@ -3,7 +3,7 @@
 
 <head>
     <script src="./download.js"></script>
-    <script src="./local_page.js"></script>
+    <script src="./local_page.{$language$}.js"></script>
     <link rel="StyleSheet" href="./local_page.css" type="text/css" />
 
     <meta charset="utf-8">
@@ -13,6 +13,7 @@
 
     </style>
     <script src="./unpkg.com_hyperlist@1.0.0_dist_hyperlist.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
 
 </head>
 
@@ -20,34 +21,28 @@
     <div class="search-bar">
         <input id="search-input" type="text" placeholder="Search videos..." oninput="onSearch()">
         <div class="notification">
-            <p id="storage-notification">已使用空间: 未知</p>
+            <p id="storage-notification">{$UsedStorageLabel$} {$UsedStorageUnknown$}</p>
         </div>
     </div>
     <div style="display: none;" id="deletingPannel" class="fullscreen">
-        <p>删除中,请稍后.</p>
+        <p>{$DeletingPlsWait$}</p>
         <p id="deletingProgress"></p>
     </div>
     <div class="container"></div>
     <script>
-
+        const language = '{$language$}'
         function timestampToFormattedDate(timestamp) {
-            // create a new Date object with the timestamp
             const date = new Date(timestamp);
 
-            // get the date parts
             const year = date.getFullYear();
-            const month = ("0" + (date.getMonth() + 1)).slice(-2);  // months are zero-indexed in JavaScript
+            const month = ("0" + (date.getMonth() + 1)).slice(-2);
             const day = ("0" + date.getDate()).slice(-2);
-
-            // get the time parts
             const hours = ("0" + date.getHours()).slice(-2);
             const minutes = ("0" + date.getMinutes()).slice(-2);
-
-            // combine into a formatted string
             const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
-
             return formattedDate;
         }
+
         const container = document.querySelector('.container');
         var searchBar = document.querySelector('.search-bar');
         var styles = window.getComputedStyle(searchBar);
@@ -56,6 +51,7 @@
         var searchBarHeight = searchBar.offsetHeight + margin;
         let allM3u8Keys = [];
         let data = allM3u8Keys;
+        let todayHistory = [];
         function generateConfig(data) {
             return config = {
                 height: window.innerHeight - searchBarHeight,
@@ -74,9 +70,9 @@
                         <a id="titleLink" target="_blank" class="title-text"></a>
                     </div>
                     <div class="buttons">
-                        <a id="playBtn" target="_blank" class="button">播放</a>
-                        <a id="originalLink" target="_blank" class="button">原视频网站</a>
-                        <button id="deleteBtn" class="button">删除</button>
+                        <a id="playBtn" target="_blank" class="button">{$PlayBtn$}</a>
+                        <a id="originalLink" target="_blank" class="button">{$OriginalPageUrl$}</a>
+                        <button id="deleteBtn" class="button">{$DeleteLabel$}</button>
                     </div>
                     <div class="timestampfooter">
                         <p id="statusText" class="status-text status_${parseInt(element.status)}"><p>
@@ -84,15 +80,15 @@
                     </div>
                 `;
                     tweet.querySelector("#statusText").innerText = GetDownloadStatusStr(element.status)
-                    tweet.querySelector("#timestamp").innerText = `下载于: ${timestampToFormattedDate(element.saveTime)}`
+                    tweet.querySelector("#timestamp").innerText = `{$DownloadAt$}: ${timestampToFormattedDate(element.saveTime)}`
                     tweet.querySelector('#titleLink').innerText = element.title;
-                    tweet.querySelector('#titleLink').href = "./local_video_player.html#" + element.m3u8Url;
+                    tweet.querySelector('#titleLink').href = "./local_video_player.{$language$}.html#" + element.m3u8Url;
                     tweet.querySelector("#deleteBtn").onclick = () => {
                         deleteVideo(element.m3u8Url)
                     }
                     tweet.querySelector("#originalLink").href = element.pageUrl;
 
-                    tweet.querySelector("#playBtn").href = "./local_video_player.html#" + element.m3u8Url;
+                    tweet.querySelector("#playBtn").href = "./local_video_player.{$language$}.html#" + element.m3u8Url;
                     container.appendChild(tweet);
 
                     var styles = window.getComputedStyle(tweet);
@@ -106,7 +102,7 @@
 
         }
         var list = undefined
-
+        // Initialize a new Hyperlist instance with the configuration
         function onSearch() {
             let keywords = document.querySelector('#search-input').value;
             const searchData = data.filter(x => x.title.indexOf(keywords) != -1);
@@ -204,7 +200,7 @@
             if (e.data.source == "VideoTogether") {
                 switch (e.data.type) {
                     case 2010: {
-                        document.querySelector("#storage-notification").innerText = `已使用空间: ${parseInt(e.data.data.data.usageDetails.indexedDB / 1024 / 1024)}MB`
+                        document.querySelector("#storage-notification").innerText = `{$UsedStorageLabel$} ${parseInt(e.data.data.data.usageDetails.indexedDB / 1024 / 1024)}MB`
                         console.log(e.data.data.data);
                         break;
                     }

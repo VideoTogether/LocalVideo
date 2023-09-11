@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script src="./download.js"></script>
+    <script src="./local_page.en-us.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.2.1"></script>
+    <link rel="StyleSheet" href="./local_page.css" type="text/css" />
+
+    <meta charset="utf-8">
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+</head>
+
+<body>
+    <div class="video-container">
+        <div id="videoTitle" class="video-title"></div>
+        <video controls id="hlsVideo">
+        </video>
+    </div>
+    <script>
+        const language = 'en-us'
+
+        const m3u8Url = (window.location.hash.substring(1));
+        const m3u8ContentCache = {}
+        const m3u8BlobUrlTom3u8Url = {}
+        m3u8BlobUrlTom3u8Url[m3u8Url] = m3u8Url;
+        async function superSuperFetch(context) {
+            const tsUrl = typeof context.url === 'string' ? context.url : context.url.href;
+            return (await readFromIndexedDB('videos', tsUrl + `#m3u8Id-${window.m3u8Id}`)).dataUrl;
+        }
+        setTimeout(() => {
+            playM3u8(m3u8Url)
+
+        }, 1000);
+        async function playM3u8(url) {
+            let hlsVideo = document.querySelector("#hlsVideo");
+            hlsVideo.VideoTogetherDisabled = true;
+            try {
+                if (Hls.isSupported()
+                    && false
+                ) {
+                    var hls = new Hls({
+                        pLoader: class CustomLoader extends Hls.DefaultConfig.loader {
+                            load(context, config, callbacks) {
+                                let FetchRemoteM3u8Content = async () => {
+                                    while (true) {
+                                        console.log("FetchRemoteM3u8Content");
+                                        try {
+                                            let m3u8Data = await readFromIndexedDB('m3u8s', context.url);
+                                            document.querySelector("#videoTitle").innerText = m3u8Data.title;
+                                            window.m3u8Id = m3u8Data.m3u8Id
+                                            let remoteM3u8Content = m3u8Data.m3u8Content;
+                                            console.log(remoteM3u8Content);
+                                            m3u8ContentCache[context.url] = remoteM3u8Content;
+                                            let m3u8BlobUrl = URL.createObjectURL(new Blob([m3u8ContentCache[context.url]], {
+                                                type: 'text/plain'
+                                            }));
+                                            m3u8BlobUrlTom3u8Url[m3u8BlobUrl] = context.url;
+                                            context.url = m3u8BlobUrl;
+                                            super.load(context, config, callbacks);
+                                            break;
+                                        } catch (e) {
+                                            await new Promise(r => setTimeout(r, 500));
+                                        }
+                                    }
+                                }
+                                FetchRemoteM3u8Content();
+                            }
+                        },
+                        fLoader: class CustomFLoader extends Hls.DefaultConfig.loader {
+                            async load(context, config, callbacks) {
+                                console.log(context);
+                                if (context.url.startsWith('blob')) {
+                                    // TODO save the blob url to m3u8 real url
+                                    context.url = new URL(context.frag.relurl, m3u8BlobUrlTom3u8Url[context.frag.baseurl]);
+                                }
+                                let originalUrl = context.url;
+                                try {
+                                    let data = await superSuperFetch(context);
+                                    context.url = data;
+                                } catch (e) {
+                                    console.log("abort");
+                                }
+                                super.load(context, config, callbacks);
+                            }
+                        },
+                        // debug: true,
+                        autoStartLoad: true,
+                        fragLoadingMaxRetry: 1000,
+                        manifestLoadingMaxRetry: 1000,
+                        levelLoadingMaxRetry: 1000
+                    });
+                    window.hls = hls;
+                    let m3u8Url = (url);
+                    hls.loadSource(m3u8Url);
+                    hls.attachMedia(hlsVideo);
+                    hlsVideo.load();
+                } else {
+                    let m3u8Data = await readFromIndexedDB('m3u8s', url);
+                    document.querySelector("#videoTitle").innerText = m3u8Data.title;
+                    console.log(m3u8Data.m3u8Content)
+                    let swM3u8Content = transferToSwM3u8(m3u8Data.m3u8Content, url, m3u8Data.m3u8Id)
+                    navigator.serviceWorker.controller.postMessage({
+                        source: "VideoTogether",
+                        type: 2013,
+                        data: swM3u8Content
+                    });
+                    // TODO use sw for hls
+                    setTimeout(() => {
+                        hlsVideo.src = `/fetch-current-m3u8-content`
+                        hlsVideo.load()
+                    }, 1000);
+                }
+            } catch { }
+        }
+    </script>
+</body>
+
+</html>
