@@ -37,8 +37,8 @@
     async function saveM3u8(m3u8Url, m3u8Content) {
         await saveToIndexedDB('m3u8s-mini', m3u8Url,
             {
-                title: window.document.title,
-                pageUrl: window.location.href,
+                title: vtArgTitle,
+                pageUrl: vtArgPageUrl,
                 m3u8Url: m3u8Url,
                 m3u8Id: m3u8Id,
                 status: 0
@@ -47,8 +47,8 @@
         await saveToIndexedDB('m3u8s', m3u8Url,
             {
                 m3u8Content: m3u8Content,
-                title: window.document.title,
-                pageUrl: window.location.href,
+                title: vtArgTitle,
+                pageUrl: vtArgPageUrl,
                 m3u8Url: m3u8Url,
                 m3u8Id: m3u8Id,
                 status: 0
@@ -66,8 +66,8 @@
     }
 
     async function saveVideoBlob(url, blob) {
-        return new Promise((res,rej)=>{
-            try{
+        return new Promise((res, rej) => {
+            try {
                 blobToDataUrl(blob, async dataUrl => {
                     await saveToIndexedDB('videos-mini', url, {
                         m3u8Url: downloadM3u8Url,
@@ -80,7 +80,7 @@
                     })
                     res();
                 })
-            }catch{
+            } catch {
                 rej();
             }
         })
@@ -217,16 +217,33 @@
     if (window.videoTogetherExtension === undefined) {
         return;
     }
+    if (window.location.hostname == 'local.2gether.video') {
+        return;
+    }
+    let vtArgM3u8Url = undefined;
+    let vtArgM3u8Content = undefined;
+    let vtArgM3u8Urls = undefined;
+    let vtArgTitle = undefined;
+    let vtArgPageUrl = undefined;
+    try {
+        vtArgM3u8Url = _vtArgM3u8Url;
+        vtArgM3u8Content = _vtArgM3u8Content;
+        vtArgM3u8Urls = _vtArgM3u8Urls;
+        vtArgTitle = _vtArgTitle;
+        vtArgPageUrl = _vtArgPageUrl;
+    } catch {
+        return;
+    }
 
     const m3u8Id = generateUUID()
-    const downloadM3u8Url = videoTogetherExtension.downloadM3u8Url;
+    const downloadM3u8Url = vtArgM3u8Url;
     const m3u8Key = downloadM3u8Url + `#m3u8Id-${m3u8Id}`
     if (downloadM3u8Url === undefined) {
         return;
     }
-    
-    await saveM3u8(downloadM3u8Url + `#m3u8Id-${m3u8Id}`, videoTogetherExtension.GetM3u8Content(downloadM3u8Url))
-    let urls = videoTogetherExtension.GetAllM3u8SegUrls(downloadM3u8Url)
+
+    await saveM3u8(downloadM3u8Url + `#m3u8Id-${m3u8Id}`, vtArgM3u8Content)
+    let urls = vtArgM3u8Urls
     const totalCount = urls.length;
     let successCount = 0;
 
@@ -259,7 +276,6 @@
             }
 
             if (value) {
-                console.log("????");
                 chunks.push(value);
                 totalBytes += value.length;
             }
@@ -315,9 +331,7 @@
     let lastTotalBytes = 0;
     setInterval(function () {
         videoTogetherExtension.downloadSpeedMb = (totalBytes - lastTotalBytes) / 1024 / 1024;
-        console.log('totalBytes', totalBytes, 'speed', (totalBytes - lastTotalBytes) / 1024 / 1024, 'MB/s');
         lastTotalBytes = totalBytes;
     }, 1000);
-    console.log(videoTogetherExtension.downloadM3u8Url);
 })()
 //
