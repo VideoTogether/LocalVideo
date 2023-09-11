@@ -37,9 +37,7 @@
             let hlsVideo = document.querySelector("#hlsVideo");
             hlsVideo.VideoTogetherDisabled = true;
             try {
-                if (Hls.isSupported()
-                    && false
-                ) {
+                if (Hls.isSupported()) {
                     var hls = new Hls({
                         pLoader: class CustomLoader extends Hls.DefaultConfig.loader {
                             load(context, config, callbacks) {
