@@ -29,6 +29,25 @@
     </div>
     <div class="container"></div>
     <script>
+
+        function timestampToFormattedDate(timestamp) {
+            // create a new Date object with the timestamp
+            const date = new Date(timestamp);
+
+            // get the date parts
+            const year = date.getFullYear();
+            const month = ("0" + (date.getMonth() + 1)).slice(-2);  // months are zero-indexed in JavaScript
+            const day = ("0" + date.getDate()).slice(-2);
+
+            // get the time parts
+            const hours = ("0" + date.getHours()).slice(-2);
+            const minutes = ("0" + date.getMinutes()).slice(-2);
+
+            // combine into a formatted string
+            const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
+
+            return formattedDate;
+        }
         const container = document.querySelector('.container');
         var searchBar = document.querySelector('.search-bar');
         var styles = window.getComputedStyle(searchBar);
@@ -71,7 +90,7 @@
                     tweet.querySelector("#deleteBtn").onclick = () => {
                         deleteVideo(element.m3u8Url)
                     }
-                    tweet.querySelector("#originalLink").href =  element.pageUrl;
+                    tweet.querySelector("#originalLink").href = element.pageUrl;
 
                     tweet.querySelector("#playBtn").href = "./local_video_player.html#" + element.m3u8Url;
                     container.appendChild(tweet);
