@@ -19,6 +19,25 @@
         </video>
     </div>
     <script>
+
+        function timestampToFormattedDate(timestamp) {
+            // create a new Date object with the timestamp
+            const date = new Date(timestamp);
+
+            // get the date parts
+            const year = date.getFullYear();
+            const month = ("0" + (date.getMonth() + 1)).slice(-2);  // months are zero-indexed in JavaScript
+            const day = ("0" + date.getDate()).slice(-2);
+
+            // get the time parts
+            const hours = ("0" + date.getHours()).slice(-2);
+            const minutes = ("0" + date.getMinutes()).slice(-2);
+
+            // combine into a formatted string
+            const formattedDate = `${year}-${month}-${day} ${hours}:${minutes}`;
+
+            return formattedDate;
+        }
         const m3u8Url = (window.location.hash.substring(1));
         const m3u8ContentCache = {}
         const m3u8BlobUrlTom3u8Url = {}
