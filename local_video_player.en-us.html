@@ -35,7 +35,6 @@
         }, 1000);
         async function playM3u8(url) {
             let hlsVideo = document.querySelector("#hlsVideo");
-            hlsVideo.VideoTogetherDisabled = true;
             try {
                 if (Hls.isSupported()) {
                     var hls = new Hls({
