@@ -1,6 +1,33 @@
+const cacheName = "PWA-v2";
+const files = [
+    "/download.js",
+    "/hls.js@1.2.1",
+    "/local_page.en-us.js",
+    "/local_page.js",
+    "/local_page.zh-cn.js",
+    "/local_page_sw.js",
+    "/unpkg.com_hyperlist@1.0.0_dist_hyperlist.js",
+    "/local_video_player.buildme.html",
+    "/local_video_player.en-us.html",
+    "/local_video_player.zh-cn.html",
+    "/local_videos.buildme.html",
+    "/local_videos.en-us.html",
+    "/local_videos.zh-cn.html"
+]
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
+});
+
+self.addEventListener("install", (e) => {
+    console.log("[Service Worker] Install");
+    e.waitUntil(
+        (async () => {
+            const cache = await caches.open(cacheName);
+            console.log("[Service Worker] Caching all: app shell and content");
+            await cache.addAll(files);
+        })(),
+    );
 });
 
 function generateUUID() {
@@ -54,6 +81,9 @@ console.log("service worker")
 self.addEventListener('fetch', (event) => {
     const clientId = event.clientId;
 
+    if (!event.request.url.startsWith('http')) {
+        return;
+    }
 
     if (event.request.url.includes("/fetch-current-m3u8-content")) {
         const response = new Response(m3u8Cache[clientId], {
@@ -72,6 +102,21 @@ self.addEventListener('fetch', (event) => {
         event.respondWith(fetchIndexedDbFuture(clientId, event.request.url));
         return;
     }
+
+    event.respondWith(
+        (async () => {
+            const r = await caches.match(event.request);
+            console.log(`[Service Worker] Fetching resource: ${event.request.url}`);
+            if (r) {
+                return r;
+            }
+            const response = await fetch(event.request);
+            const cache = await caches.open(cacheName);
+            console.log(`[Service Worker] Caching new resource: ${event.request.url}`);
+            cache.put(event.request, response.clone());
+            return response;
+        })(),
+    );
 });
 
 m3u8Cache = {}
