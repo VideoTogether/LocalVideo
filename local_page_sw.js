@@ -12,7 +12,8 @@ const files = [
     "/local_video_player.zh-cn.html",
     "/local_videos.buildme.html",
     "/local_videos.en-us.html",
-    "/local_videos.zh-cn.html"
+    "/local_videos.zh-cn.html",
+    "/local_page.css"
 ]
 
 self.addEventListener('activate', (event) => {
