@@ -2,6 +2,7 @@
 <html>
 
 <head>
+    <title>Local Videos</title>
     <script src="./download.js"></script>
     <script src="./local_page.en-us.js"></script>
     <link rel="StyleSheet" href="./local_page.css" type="text/css" />
@@ -104,6 +105,9 @@
         var list = undefined
         // Initialize a new Hyperlist instance with the configuration
         function onSearch() {
+            if (allM3u8Keys.length == 0) {
+                loadData()
+            }
             let keywords = document.querySelector('#search-input').value;
             const searchData = data.filter(x => x.title.indexOf(keywords) != -1);
             list.refresh(container, generateConfig(searchData));
@@ -164,7 +168,7 @@
                 return;
             }
             await updateM3u8Status(m3u8Url, 2)
-            let tsFilesIds = await regexMatchKeys('videos', m3u8Data.m3u8Id + "$");
+            let tsFilesIds = await regexMatchKeys('videos', "#m3u8Id-" + m3u8Data.m3u8Id + "$");
             console.log(tsFilesIds)
 
             for (let i in tsFilesIds) {
@@ -175,11 +179,20 @@
                 }
                 document.querySelector("#deletingProgress").innerText = `${parseInt(i) + 1}/${tsFilesIds.length}`
             }
+            let futureFilesIds = await regexMatchKeys('future', "#m3u8Id-" + m3u8Data.m3u8Id + "$");
+            console.log(futureFilesIds)
+            for (let id of futureFilesIds) {
+                await deleteFromIndexedDB('future', id)
+            }
             await deleteFromIndexedDB('m3u8s', m3u8Url);
             data = data.filter(x => x.m3u8Url != m3u8Url);
             onSearch()
             hide(document.querySelector('#deletingPannel'))
-            // updatePassword()
+
+            window.postMessage({
+                source: "VideoTogether",
+                type: 3009
+            }, '*')
         }
         async function debug(m3u8Url) {
             let m3u8Data = undefined
@@ -192,7 +205,7 @@
             if (m3u8Data == undefined) {
                 return;
             }
-            let tsFilesIds = await regexMatchKeys('videos', m3u8Data.m3u8Id + "$");
+            let tsFilesIds = await regexMatchKeys('videos', "#m3u8Id-" + m3u8Data.m3u8Id + "$");
             console.log(tsFilesIds)
         }
 
@@ -200,8 +213,7 @@
             if (e.data.source == "VideoTogether") {
                 switch (e.data.type) {
                     case 2010: {
-                        document.querySelector("#storage-notification").innerText = `Used Storage: ${parseInt(e.data.data.data.usageDetails.indexedDB / 1024 / 1024)}MB`
-                        console.log(e.data.data.data);
+                        document.querySelector("#storage-notification").innerText = `Used Storage: ${parseInt(e.data.data.data / 1024 / 1024)}MB`
                         break;
                     }
                 }

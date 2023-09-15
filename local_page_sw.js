@@ -38,8 +38,15 @@ async function readFromIndexedDB(clientId, table, key) {
 async function fetchIndexedDbVideos(clientId, url) {
     const arr = url.split('/fetch-indexeddb-videos/')
     const key = arr[arr.length - 1]
-    const data = await readFromIndexedDB(clientId, 'videos', key);
-    return fetch(data.dataUrl);
+    const record = await readFromIndexedDB(clientId, 'videos', key);
+    return fetch(record.data);
+}
+
+async function fetchIndexedDbFuture(clientId, url) {
+    const arr = url.split('/fetch-indexeddb-future/')
+    const key = arr[arr.length - 1]
+    const record = await readFromIndexedDB(clientId, 'future', key);
+    return fetch(record.data);
 }
 
 
@@ -53,12 +60,16 @@ self.addEventListener('fetch', (event) => {
             headers: { 'Content-Type': 'application/vnd.apple.mpegurl' }
         });
         event.respondWith(response);
-
         return;
     }
 
     if (event.request.url.includes('/fetch-indexeddb-videos/')) {
         event.respondWith(fetchIndexedDbVideos(clientId, event.request.url));
+        return;
+    }
+
+    if (event.request.url.includes('/fetch-indexeddb-future/')) {
+        event.respondWith(fetchIndexedDbFuture(clientId, event.request.url));
         return;
     }
 });

@@ -1,6 +1,37 @@
 //*/
 (async function () {
 
+    function extractExtXKeyUrls(m3u8Content, baseUrl) {
+        const uris = [];
+        const lines = m3u8Content.split('\n');
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i].trim();
+
+            if (line.startsWith('#EXT-X-KEY')) {
+                const match = line.match(/URI="(.*?)"/);
+
+                if (match && match[1]) {
+                    let uri = match[1];
+
+                    // Ignore data: URIs as they don't need to be downloaded
+                    if (uri.startsWith('data:')) {
+                        continue;
+                    }
+
+                    // If the URI is not absolute, make it so by combining with the base URL.
+                    if (!uri.startsWith('http://') && !uri.startsWith('https://')) {
+                        uri = new URL(uri, baseUrl).href;
+                    }
+
+                    uris.push(uri);
+                }
+            }
+        }
+
+        return uris;
+    }
+
     async function timeoutAsyncRead(reader, timeout) {
         const timer = new Promise((_, rej) => {
             const id = setTimeout(() => {
@@ -28,25 +59,13 @@
         // 0 downloading  1 completed 2 deleting
         let m3u8mini = await readFromIndexedDB('m3u8s-mini', m3u8Url);
         m3u8mini.status = status
-        let m3u8 = await readFromIndexedDB('m3u8s', m3u8Url);
-        m3u8.status = status
         await saveToIndexedDB('m3u8s-mini', m3u8Url, m3u8mini);
-        await saveToIndexedDB('m3u8s', m3u8Url, m3u8)
     }
 
     async function saveM3u8(m3u8Url, m3u8Content) {
-        await saveToIndexedDB('m3u8s-mini', m3u8Url,
-            {
-                title: vtArgTitle,
-                pageUrl: vtArgPageUrl,
-                m3u8Url: m3u8Url,
-                m3u8Id: m3u8Id,
-                status: 0
-            }
-        )
         await saveToIndexedDB('m3u8s', m3u8Url,
             {
-                m3u8Content: m3u8Content,
+                data: m3u8Content,
                 title: vtArgTitle,
                 pageUrl: vtArgPageUrl,
                 m3u8Url: m3u8Url,
@@ -57,34 +76,33 @@
 
     }
 
-    function blobToDataUrl(blob, callback) {
-        const reader = new FileReader();
-        reader.onload = function (event) {
-            callback(event.target.result);
-        };
-        reader.readAsDataURL(blob);
+    async function blobToDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                resolve(event.target.result);
+            };
+            reader.onerror = function (event) {
+                reject(new Error("Failed to read blob"));
+            };
+            reader.readAsDataURL(blob);
+        });
     }
 
-    async function saveVideoBlob(url, blob) {
-        return new Promise((res, rej) => {
+    async function saveBlob(table, url, blob) {
+        return new Promise(async (res, rej) => {
             try {
-                blobToDataUrl(blob, async dataUrl => {
-                    await saveToIndexedDB('videos-mini', url, {
-                        m3u8Url: downloadM3u8Url,
-                        m3u8Id: m3u8Id,
-                    })
-                    await saveToIndexedDB('videos', url, {
-                        dataUrl: dataUrl,
-                        m3u8Url: downloadM3u8Url,
-                        m3u8Id: m3u8Id,
-                    })
-                    res();
+                const dataUrl = await blobToDataUrl(blob);
+                await saveToIndexedDB(table, url, {
+                    data: dataUrl,
+                    m3u8Url: downloadM3u8Url,
+                    m3u8Id: m3u8Id,
                 })
+                res();
             } catch {
                 rej();
             }
         })
-
     }
 
     window.regexMatchKeys = function regexMatchKeys(table, regex) {
@@ -101,7 +119,7 @@
             }, '*')
             regexCallback[queryId] = (data) => {
                 try {
-                    res(JSON.parse(data))
+                    res(data)
                 } catch { rej() }
             }
         })
@@ -117,7 +135,7 @@
                 data: {
                     table: table,
                     key: key,
-                    data: JSON.stringify(data),
+                    data: data,
                     id: queryId,
                 }
             }, '*')
@@ -206,7 +224,7 @@
         return new Promise((res, rej) => {
             readCallback[queryId] = (data) => {
                 try {
-                    res(JSON.parse(data));
+                    res(data);
                 } catch {
                     rej()
                 }
@@ -237,21 +255,35 @@
 
     const m3u8Id = generateUUID()
     const downloadM3u8Url = vtArgM3u8Url;
+    const numThreads = 10;
+    let lastTotalBytes = 0;
+    let totalBytes = 0;
+    let failedUrls = []
+    let urls = vtArgM3u8Urls
+    let successCount = 0;
+    videoTogetherExtension.downloadPercentage = 0;
+
     const m3u8Key = downloadM3u8Url + `#m3u8Id-${m3u8Id}`
     if (downloadM3u8Url === undefined) {
         return;
     }
 
     await saveM3u8(downloadM3u8Url + `#m3u8Id-${m3u8Id}`, vtArgM3u8Content)
-    let urls = vtArgM3u8Urls
-    const totalCount = urls.length;
-    let successCount = 0;
 
-    videoTogetherExtension.downloadPercentage = 0;
+    const otherUrl = extractExtXKeyUrls(vtArgM3u8Content, downloadM3u8Url);
+    const totalCount = urls.length + otherUrl.length;
 
-    let failedUrls = []
+    console.log(otherUrl);
 
-    let totalBytes = 0;
+    await downloadInParallel('future', otherUrl, numThreads);
+
+    setInterval(function () {
+        videoTogetherExtension.downloadSpeedMb = (totalBytes - lastTotalBytes) / 1024 / 1024;
+        lastTotalBytes = totalBytes;
+    }, 1000);
+
+    await downloadInParallel('videos', urls, numThreads);
+    await updateM3u8Status(m3u8Key, 1)
     async function fetchWithSpeedTracking(url) {
         const controller = new AbortController();
         const timer = setTimeout(() => {
@@ -259,7 +291,7 @@
         }, 20000);
 
         const response = await fetch(url, { signal: controller.signal });
-
+        clearTimeout(timer)
         if (!response.body) {
             throw new Error("ReadableStream not yet supported in this browser.");
         }
@@ -270,7 +302,7 @@
         const chunks = [];
 
         async function readStream() {
-            const { done, value } = await timeoutAsyncRead(reader, 20000);
+            const { done, value } = await timeoutAsyncRead(reader, 60000);
             if (done) {
                 return;
             }
@@ -288,7 +320,7 @@
         return blob;
     }
 
-    async function downloadWorker(urls, index, step, total) {
+    async function downloadWorker(table, urls, index, step, total) {
         if (index >= total) {
             return;
         }
@@ -296,42 +328,34 @@
         const url = urls[index];
         try {
             const blob = await fetchWithSpeedTracking(url);
-            await saveVideoBlob(url + `#m3u8Id-${m3u8Id}`, blob);
+            await saveBlob(table, url + `#m3u8Id-${m3u8Id}`, blob);
             successCount++;
             videoTogetherExtension.downloadPercentage = Math.floor((successCount / totalCount) * 100)
-            console.log('download ts:', index, 'of', total);
-        } catch {
+            console.log('download ts:', table, index, 'of', total);
+        } catch (e) {
+            await new Promise(r => setTimeout(r, 2000));
             failedUrls.push(url);
+            console.error(e);
         }
 
         // Pick up the next work item
-        await downloadWorker(urls, index + step, step, total);
+        await downloadWorker(table, urls, index + step, step, total);
     }
 
-    async function downloadInParallel(urls, numThreads) {
+    async function downloadInParallel(table, urls, numThreads) {
         const total = urls.length;
 
         // Start numThreads download workers
         const promises = Array.from({ length: numThreads }, (_, i) => {
-            return downloadWorker(urls, i, numThreads, total);
+            return downloadWorker(table, urls, i, numThreads, total);
         });
 
         await Promise.all(promises);
         if (failedUrls.length != 0) {
             urls = failedUrls;
             failedUrls = [];
-            await downloadInParallel(urls, numThreads);
-        } else {
-            updateM3u8Status(m3u8Key, 1)
+            await downloadInParallel(table, urls, numThreads);
         }
     }
-
-    const numThreads = 10;
-    downloadInParallel(urls, numThreads);
-    let lastTotalBytes = 0;
-    setInterval(function () {
-        videoTogetherExtension.downloadSpeedMb = (totalBytes - lastTotalBytes) / 1024 / 1024;
-        lastTotalBytes = totalBytes;
-    }, 1000);
 })()
 //
