@@ -160,6 +160,7 @@
             switch (e.data.type) {
                 case 2003: {
                     saveCallback[e.data.data.id](e.data.data.error)
+                    saveCallback[e.data.data.id] = undefined
                     break;
                 }
                 case 2004: {
