@@ -127,6 +127,7 @@ self.addEventListener("message", (e) => {
         switch (e.data.type) {
             case 2012: {
                 readCallback[e.data.data.id](e.data.data.data)
+                readCallback[e.data.data.id] = undefined;
                 break;
             }
             case 2013: {
