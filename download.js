@@ -259,6 +259,7 @@
     }
 
     const m3u8Id = generateUUID()
+    const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
     const downloadM3u8Url = vtArgM3u8Url;
     const numThreads = 10;
     let lastTotalBytes = 0;
@@ -268,12 +269,12 @@
     let successCount = 0;
     videoTogetherExtension.downloadPercentage = 0;
 
-    const m3u8Key = downloadM3u8Url + `#m3u8Id-${m3u8Id}`
+    const m3u8Key = m3u8IdHead + downloadM3u8Url
     if (downloadM3u8Url === undefined) {
         return;
     }
 
-    await saveM3u8(downloadM3u8Url + `#m3u8Id-${m3u8Id}`, vtArgM3u8Content)
+    await saveM3u8(m3u8Key, vtArgM3u8Content)
 
     const otherUrl = extractExtXKeyUrls(vtArgM3u8Content, downloadM3u8Url);
     const totalCount = urls.length + otherUrl.length;
@@ -334,7 +335,7 @@
         const url = urls[index];
         try {
             let blob = await fetchWithSpeedTracking(url);
-            await saveBlob(table, url + `#m3u8Id-${m3u8Id}`, blob);
+            await saveBlob(table, m3u8IdHead + url, blob);
             blob = null;
             successCount++;
             videoTogetherExtension.downloadPercentage = Math.floor((successCount / totalCount) * 100)

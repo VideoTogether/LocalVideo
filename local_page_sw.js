@@ -1,4 +1,4 @@
-const cacheName = "PWA-v2";
+const cacheName = "PWA-v6";
 const files = [
     "/download.js",
     "/hls.js@1.2.1",
@@ -18,6 +18,19 @@ const files = [
 
 self.addEventListener('activate', (event) => {
     event.waitUntil(self.clients.claim());
+    event.waitUntil(
+        caches.keys().then((keyList) => {
+            console.log("keyList", keyList);
+            return Promise.all(
+                keyList.map((key) => {
+                    if (key === cacheName) {
+                        return;
+                    }
+                    return caches.delete(key);
+                }),
+            );
+        }),
+    );
 });
 
 self.addEventListener("install", (e) => {

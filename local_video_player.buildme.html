@@ -22,17 +22,19 @@
     <script>
         const language = '{$language$}'
         window.VideoTogetherEasyShare = 'disabled'
-        const m3u8Url = (window.location.hash.substring(1));
+        const m3u8Key = window.location.hash.substring(1)
+        const m3u8Url = (window.location.hash.substring(1)).split('-end-')[1];
 
         setTimeout(() => {
             playM3u8(m3u8Url)
         }, 1000);
         async function playM3u8(url) {
 
-            let m3u8Data = await readFromIndexedDB('m3u8s', url);
+            let m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
             document.querySelector("#videoTitle").innerText = m3u8Data.title;
             console.log(m3u8Data.data)
             let swM3u8Content = transferToSwM3u8(m3u8Data.data, url, m3u8Data.m3u8Id)
+            console.log(swM3u8Content);
             navigator.serviceWorker.controller.postMessage({
                 source: "VideoTogether",
                 type: 2013,

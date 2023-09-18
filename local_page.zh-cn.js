@@ -13,7 +13,7 @@ function GetDownloadStatusStr(status) {
 
 function extractM3u8IdFromKey(key) {
     try {
-        const arr = key.split('#m3u8Id-')
+        const arr = key.split('-m3u8Id-')[0].split('-end-')[0]
         return arr[arr.length - 1]
     } catch {
         return undefined
@@ -42,7 +42,8 @@ function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id) {
                 return match;
             }
             // Add the /rootfolder/ prefix to the URI
-            const newURI = '/fetch-indexeddb-future/' + (new URL(uri, m3u8Url)).href + `#m3u8Id-${m3u8Id}`
+            const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
+            const newURI = '/fetch-indexeddb-future/' + m3u8IdHead + (new URL(uri, m3u8Url)).href
 
             // Replace the URI in the original line
             return `${prefix}"${new URL(newURI, window.location)}"`;
@@ -65,7 +66,8 @@ function transferToSwM3u8(m3u8Content, m3u8Url, m3u8Id) {
             }
             console.log(line, m3u8Url, (new URL(line, m3u8Url)).href)
             line = (new URL(line, m3u8Url)).href
-            line = new URL("/fetch-indexeddb-videos/" + line + `#m3u8Id-${m3u8Id}`, window.location).href
+            const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
+            line = new URL("/fetch-indexeddb-videos/" + m3u8IdHead + line, window.location).href
             return line
         }
     });
