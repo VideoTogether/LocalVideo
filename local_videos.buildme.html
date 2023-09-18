@@ -23,6 +23,7 @@
         <input id="search-input" type="text" placeholder="Search videos..." oninput="onSearch()">
         <div class="notification">
             <p id="storage-notification">{$UsedStorageLabel$} {$UsedStorageUnknown$}</p>
+            <button id="compactBtn" onclick="compact()" class="button">compact</button>
         </div>
     </div>
     <div style="display: none;" id="deletingPannel" class="fullscreen">
@@ -196,6 +197,17 @@
                 data: {
                     beginKey: m3u8Head,
                     endKey: m3u8Head + "~"
+                }
+            }, '*')
+        }
+
+        function compact() {
+            window.postMessage({
+                source: "VideoTogether",
+                type: 3009,
+                data: {
+                    beginKey: "",
+                    endKey: "~"
                 }
             }, '*')
         }
