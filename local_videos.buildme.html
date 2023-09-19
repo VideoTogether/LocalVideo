@@ -14,7 +14,6 @@
 
     </style>
     <script src="./unpkg.com_hyperlist@1.0.0_dist_hyperlist.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.0.0/crypto-js.min.js"></script>
 
 </head>
 
@@ -170,6 +169,10 @@
             }
             await updateM3u8Status(m3u8Url, 2)
             let m3u8Head = "-m3u8Id-" + m3u8Data.m3u8Id + "-end-"
+
+            await iosDeleteByPrefix('videos' + m3u8Head)
+            await iosDeleteByPrefix('m3u8s' + m3u8Head)
+            await iosDeleteByPrefix('future' + m3u8Head)
             let tsFilesIds = await regexMatchKeys('videos', "^" + m3u8Head);
             console.log(tsFilesIds)
 

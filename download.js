@@ -99,8 +99,8 @@
                     m3u8Id: m3u8Id,
                 })
                 res();
-            } catch {
-                rej();
+            } catch (e) {
+                rej(e);
             }
         })
     }
@@ -144,7 +144,28 @@
                 if (error === 0) {
                     res(0)
                 } else {
-                    rej()
+                    rej(error)
+                }
+            }
+        })
+    }
+
+    window.iosDeleteByPrefix = async function iosDeleteByPrefix(prefix) {
+        const queryId = generateUUID();
+        return new Promise((res, rej) => {
+            window.postMessage({
+                source: "VideoTogether",
+                type: 3010,
+                data: {
+                    prefix: prefix,
+                    id: queryId,
+                }
+            }, '*')
+            deleteByPrefix[queryId] = (error) => {
+                if (error === 0) {
+                    res(0)
+                } else {
+                    rej(error)
                 }
             }
         })
@@ -154,6 +175,7 @@
     let regexCallback = {}
     let deleteCallback = {}
     let saveCallback = {}
+    let deleteByPrefix = {}
 
     window.addEventListener('message', async e => {
         if (e.data.source == "VideoTogether") {
@@ -176,6 +198,11 @@
                 case 2008: {
                     deleteCallback[e.data.data.id](e.data.data.error);
                     deleteCallback[e.data.data.id] = undefined;
+                    break;
+                }
+                case 3011: {
+                    deleteByPrefix[e.data.data.id](e.data.data.error);
+                    deleteByPrefix[e.data.data.id] = undefined;
                     break;
                 }
                 case 2010: {
@@ -208,7 +235,7 @@
                 if (error === 0) {
                     res(true);
                 } else {
-                    rej();
+                    rej(error);
                 }
             }
         })
