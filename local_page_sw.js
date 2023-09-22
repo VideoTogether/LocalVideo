@@ -80,7 +80,15 @@ async function fetchIndexedDbVideos(clientId, url) {
     const arr = url.split('/fetch-indexeddb-videos/')
     const key = arr[arr.length - 1]
     const record = await readFromIndexedDB(clientId, 'videos', key);
-    return fetch(record.data);
+    const originalResponse = await fetch(record.data);
+
+    const newResponse = new Response(originalResponse.body, {
+        status: originalResponse.status,
+        statusText: originalResponse.statusText,
+        headers: originalResponse.headers
+    });
+
+    return newResponse;
 }
 
 async function fetchIndexedDbFuture(clientId, url) {

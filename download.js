@@ -125,7 +125,12 @@
         })
     }
 
+    saveToIndexedDBThreads = 1;
     window.saveToIndexedDB = async function saveToIndexedDB(table, key, data) {
+        while (saveToIndexedDBThreads < 1) {
+            await new Promise(r => setTimeout(r, 100));
+        }
+        saveToIndexedDBThreads--;
         const queryId = generateUUID();
         return new Promise((res, rej) => {
             data.saveTime = Date.now()
@@ -141,6 +146,7 @@
             }, '*')
             data = null;
             saveCallback[queryId] = (error) => {
+                saveToIndexedDBThreads++;
                 if (error === 0) {
                     res(0)
                 } else {
