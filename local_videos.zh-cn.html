@@ -112,6 +112,7 @@
             const searchData = data.filter(x => x.title.indexOf(keywords) != -1);
             list.refresh(container, generateConfig(searchData));
         }
+        window.addEventListener('resize', onSearch)
 
         loadData()
 
@@ -128,10 +129,11 @@
             }
             data.sort((l, r) => r.saveTime - l.saveTime)
             list = new HyperList(container, generateConfig(data));
-            cleanUselessVideos()
+            // cleanUselessVideos()
         }
 
         async function cleanUselessVideos() {
+            return; // don't use, has issue
             m3u8Ids = []
             data.forEach(m3u8 => {
                 try {
@@ -150,7 +152,7 @@
                 const m3u8Id = extractM3u8IdFromKey(videoKey);
                 const test = await regexMatchKeys('m3u8s', m3u8Id);
                 if (test.length == 0) {
-                    await deleteFromIndexedDB('videos', videoKey)
+                    // await deleteFromIndexedDB('videos', videoKey)
                 }
             }
         }

@@ -1,3 +1,5 @@
+window.VideoTogetherDownload = 'disabled'
+
 function GetDownloadStatusStr(status) {
     switch (status) {
         case 0:
