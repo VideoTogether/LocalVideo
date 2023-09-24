@@ -35,9 +35,9 @@ if ('serviceWorker' in navigator) {
 }
 
 function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id) {
-    // Use a regular expression to find all #EXT-X-KEY lines with URI="<some_url>"
+    // Use a regular expression to find all #EXT-X-KEY, #EXT-X-MAP lines with URI="<some_url>"
     const updatedContent = m3u8Content.replace(
-        /(#EXT-X-KEY:[^\n]*URI=)"(.*?)"/g,
+        /(#EXT-X-.*:[^\n]*URI=)"(.*?)"/g,
         function (match, prefix, uri) {
             // Skip data: URIs, as they don't need to be modified.
             if (uri.startsWith('data:')) {

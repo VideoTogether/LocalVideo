@@ -8,7 +8,7 @@
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i].trim();
 
-            if (line.startsWith('#EXT-X-KEY')) {
+            if (line.startsWith('#EXT-X-')) {
                 const match = line.match(/URI="(.*?)"/);
 
                 if (match && match[1]) {
