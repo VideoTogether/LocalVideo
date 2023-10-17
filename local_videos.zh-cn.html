@@ -104,9 +104,9 @@
         }
         var list = undefined
         // Initialize a new Hyperlist instance with the configuration
-        function onSearch() {
+        async function onSearch() {
             if (allM3u8Keys.length == 0) {
-                loadData()
+                await loadData()
             }
             let keywords = document.querySelector('#search-input').value;
             const searchData = data.filter(x => x.title.indexOf(keywords) != -1);
@@ -120,14 +120,15 @@
             await new Promise(r => setTimeout(r, 500));
             requestStorageEstimate();
             allM3u8Keys = await regexMatchKeys('m3u8s', '.');
-            data = [];
+            const tmpData = [];
             for (let i in allM3u8Keys) {
                 const key = allM3u8Keys[i]
                 let m3u8Data = await readFromIndexedDB('m3u8s-mini', key);
-                data.push(m3u8Data);
+                tmpData.push(m3u8Data);
                 console.log(m3u8Data)
             }
-            data.sort((l, r) => r.saveTime - l.saveTime)
+            tmpData.sort((l, r) => r.saveTime - l.saveTime)
+            data = tmpData
             list = new HyperList(container, generateConfig(data));
             // cleanUselessVideos()
         }
