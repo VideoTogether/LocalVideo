@@ -7,7 +7,8 @@
     <script src="./local_page.{$language$}.js"></script>
     <script src="./hls.js@1.2.1"></script>
     <link rel="StyleSheet" href="./local_page.css" type="text/css" />
-
+    <script src="./assets/ffmpeg/package/dist/umd/ffmpeg.js"></script>
+    <script src="./assets/util/package/dist/umd/index.js"></script>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -60,6 +61,50 @@
                     hlsVideo.load()
                 }
             } catch { }
+        }
+    </script>
+    <script>
+        const { fetchFile } = FFmpegUtil;
+        const { FFmpeg } = FFmpegWASM;
+        let ffmpeg = null;
+        const transcode = async () => {
+            ffmpeg = new FFmpeg();
+            ffmpeg.on("log", ({ message }) => {
+                console.log(message);
+            })
+            ffmpeg.on("progress", ({ progress, time }) => {
+                message.innerHTML = `${progress * 100} %, time: ${time / 1000000} s`;
+            });
+            await ffmpeg.load({
+                coreURL: "/assets/core-mt/package/dist/umd/ffmpeg-core.js",
+            });
+            let globalId = 0;
+            const files = []
+            const urlTrans = (url) => {
+                console.log(url)
+                const filename = (globalId++) + url.split('/').pop();
+                files.push({
+                    name: filename,
+                    url: url
+                })
+                return './' + filename;
+            }
+
+            let m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
+            let swM3u8Content = transferToSwM3u8(m3u8Data.data, m3u8Url, m3u8Data.m3u8Id, urlTrans)
+            await ffmpeg.writeFile('input.m3u8', swM3u8Content)
+            for (let item of files) {
+                console.log(item)
+                await ffmpeg.writeFile(item.name, await fetchFile(item.url));
+            }
+            await ffmpeg.exec(['-allowed_extensions', 'ALL', '-i', 'input.m3u8', '-c', 'copy', 'output.mp4']);
+            const data = await ffmpeg.readFile('output.mp4');
+            const blob = new Blob([data.buffer], { type: 'video/mp4' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${m3u8Data.title}.mp4`;
+            a.click();
         }
     </script>
 </body>

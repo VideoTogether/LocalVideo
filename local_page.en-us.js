@@ -34,7 +34,7 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/local_page_sw.js');
 }
 
-function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id) {
+function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id, urlTrans) {
     // Use a regular expression to find all #EXT-X-KEY, #EXT-X-MAP lines with URI="<some_url>"
     const updatedContent = m3u8Content.replace(
         /(#EXT-X-.*:[^\n]*URI=)"(.*?)"/g,
@@ -45,17 +45,19 @@ function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id) {
             }
             // Add the /rootfolder/ prefix to the URI
             const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
-            const newURI = '/fetch-indexeddb-future/' + m3u8IdHead + (new URL(uri, m3u8Url)).href
-
+            let newURI = new URL('/fetch-indexeddb-future/' + m3u8IdHead + (new URL(uri, m3u8Url)).href, window.location).href
+            if (urlTrans) {
+                newURI = urlTrans(newURI);
+            }
             // Replace the URI in the original line
-            return `${prefix}"${new URL(newURI, window.location)}"`;
+            return `${prefix}"${newURI}"`;
         }
     );
 
     return updatedContent;
 }
 
-function transferToSwM3u8(m3u8Content, m3u8Url, m3u8Id) {
+function transferToSwM3u8(m3u8Content, m3u8Url, m3u8Id, urlTrans) {
     const lines = m3u8Content.split('\n');
 
     const modifiedLines = lines.map(line => {
@@ -70,6 +72,9 @@ function transferToSwM3u8(m3u8Content, m3u8Url, m3u8Id) {
             line = (new URL(line, m3u8Url)).href
             const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
             line = new URL("/fetch-indexeddb-videos/" + m3u8IdHead + line, window.location).href
+            if (urlTrans) {
+                line = urlTrans(line);
+            }
             return line
         }
     });
@@ -77,5 +82,5 @@ function transferToSwM3u8(m3u8Content, m3u8Url, m3u8Id) {
     // Join the modified lines back into a single string
     const modifiedText = modifiedLines.join('\n');
 
-    return updateM3U8KeyPaths(modifiedText, m3u8Url, m3u8Id);
+    return updateM3U8KeyPaths(modifiedText, m3u8Url, m3u8Id, urlTrans);
 }
