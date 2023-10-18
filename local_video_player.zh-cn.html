@@ -105,6 +105,7 @@
             }
             await ffmpeg.exec(['-allowed_extensions', 'ALL', '-i', 'input.m3u8', '-c', 'copy', 'output.mp4']);
             const data = await ffmpeg.readFile('output.mp4');
+            ffmpeg.terminate()
             const blob = new Blob([data.buffer], { type: 'video/mp4' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
