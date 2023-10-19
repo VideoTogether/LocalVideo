@@ -1,10 +1,2 @@
 {
-    "headers": [
-        {
-            "source": "(.*)",
-            "headers": [
-
-            ]
-        }
-    ]
 }
