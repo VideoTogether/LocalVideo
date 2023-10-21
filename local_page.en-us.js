@@ -32,6 +32,10 @@ function show(e) {
 
 if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/local_page_sw.js');
+    setTimeout(async () => {
+        reg = await navigator.serviceWorker.ready
+        reg.update()
+    }, 1);
 }
 
 function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id, urlTrans) {

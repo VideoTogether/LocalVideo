@@ -9,6 +9,7 @@
     <link rel="StyleSheet" href="./local_page.css" type="text/css" />
     <script src="./assets/ffmpeg/package/dist/umd/ffmpeg.js"></script>
     <script src="./assets/util/package/dist/umd/index.js"></script>
+    <script src="./StreamSaver.js/StreamSaver.js"></script>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -69,45 +70,159 @@
         const { fetchFile } = FFmpegUtil;
         const { FFmpeg } = FFmpegWASM;
         let ffmpeg = null;
-        const transcode = async () => {
+        let files = []
+        let _mdat_size = undefined
+        let swM3u8Content
+        let m3u8Data
+        const streamSaver = window.streamSaver
+        let fileStream
+        let fileWriter
 
+        let outputArray = []
+        async function onCompleted() {
+            writeLastOutputChunk();
+            fileWriter.close()
+            ffmpeg.terminate()
+        }
+
+
+        let nextOutputChunkId = 0;
+        let lastOutputChunk = undefined;
+        let lastOutputChunkOffset = 0;
+        let _lastSeekOffset = -1;
+        let lastOutputName = ""
+        async function writeLastOutputChunk() {
+            if (lastOutputChunk == undefined) {
+                return;
+            }
+            fileWriter.write(lastOutputChunk)
+        }
+        async function ffmpegExec(no_output, swM3u8Content) {
+
+            nextOutputChunkId = 0;
+            lastOutputChunk = undefined;
+            lastOutputChunkOffset = 0;
+            _lastSeekOffset = -1;
+            _lastSeekOffsetSeqNum = 0;
+            seekused = {}
+            if (!no_output) {
+                fileStream = streamSaver.createWriteStream(`${m3u8Data.title}.mp4`, {
+                    writableStrategy: undefined,
+                    readableStrategy: undefined
+                })
+                fileWriter = fileStream.getWriter()
+            }
+            outputArray = []
             ffmpeg = new FFmpeg();
             const message = document.getElementById('message');
-            async function onCompleted() {
 
-                const data = await ffmpeg.readFile('output.mp4');
-
-                // ffmpeg.terminate()
-                const blob = new Blob([data.buffer], { type: 'video/mp4' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `${m3u8Data.title}.mp4`;
-                a.click();
-            }
             ffmpeg.on("log", async ({ message }) => {
                 console.log(message);
-                if (message == 'Close file: output.mp4 successfully.') {
-                    onCompleted();
-                }
+
                 if (message.startsWith('Close file: ')) {
                     const filename = message.split('Close file: ')[1].split(' successfully.')[0];
-                    if (filename != 'output.mp4') {
+                    if (!filename.startsWith('output')) {
                         await ffmpeg.deleteFile(filename)
+                    } else {
+                        if (no_output) {
+                            _mdat_size = await ffmpeg.readFile("_mdat_size.bin")
+                            setTimeout(() => {
+                                ffmpeg.terminate();
+                                ffmpegExec(false, swM3u8Content);
+                            }, 1);
+                        } else {
+                            setTimeout(() => {
+                                onCompleted();
+                            }, 1000);
+                        }
                     }
-                    console.log(filename);
+                } else if (message.startsWith('Waiting for file ')) {
+                    const filename = message.split('Waiting for file ')[1].split(' to be created...')[0];
+                    if (filename.startsWith('_wait_output')) {
+                        ffmpeg.writeFile(filename, '')
+                    } else {
+                        const item = files.find(item => "./" + item.name == filename);
+                        await ffmpeg.writeFile(item.name, await fetchFile(item.url));
+                    }
+                } else if (message.startsWith('Write chunk output file: ')) {
+                    let lastSeekOffset = _lastSeekOffset;
+                    const lastSeekOffsetSeqNum = _lastSeekOffsetSeqNum
+                    const filename = message.split('Write chunk output file: ')[1].split(';')[0];
+                    while (`output${nextOutputChunkId}.mp4` != filename) {
+                        await new Promise(r => setTimeout(r, 100));
+                    }
+                    const outputChunk = await ffmpeg.readFile(filename);
+                    if (lastSeekOffset != -1) {
+                        if (lastSeekOffset > lastOutputChunkOffset + lastOutputChunk.length) {
+                            lastSeekOffset = lastOutputChunkOffset + lastOutputChunk.length
+                        }
+                        if (seekused[lastSeekOffsetSeqNum]) {
+                            lastSeekOffset = seekused[lastSeekOffsetSeqNum] + lastOutputChunkOffset;
+                        }
+                        if (lastSeekOffset < lastOutputChunkOffset || lastSeekOffset > lastOutputChunkOffset + lastOutputChunk.length) {
+                            console.error("error offset: ", lastSeekOffset, lastOutputChunkOffset, lastOutputChunk);
+                        } else {
+                            const chunkOffset = lastSeekOffset - lastOutputChunkOffset;
+                            if (chunkOffset == lastOutputChunk.length) {
+                                let combinedData = new Uint8Array(outputChunk.length + lastOutputChunk.length);
+                                combinedData.set(lastOutputChunk);
+                                lastOutputChunk = combinedData;
+                            }
+                            lastOutputChunk.set(outputChunk, chunkOffset);
+
+                            console.error("chunk offset: ", chunkOffset);
+
+                            seekused[lastSeekOffsetSeqNum] = chunkOffset + outputChunk.length;
+                        }
+                        nextOutputChunkId++;
+                        return;
+                    }
+                    await writeLastOutputChunk();
+                    if (lastOutputChunk) {
+                        lastOutputChunkOffset += lastOutputChunk.length
+                    }
+                    lastOutputName = filename;
+                    lastOutputChunk = outputChunk;
+                    // fileWriter.write(outputChunk)
+                    await ffmpeg.deleteFile(filename)
+                    nextOutputChunkId++;
+                } else if (message.startsWith('file_seek file: output.mp4; ')) {
+                    const position = parseInt(message.split('file_seek file: output.mp4; ')[1].split(';')[0]);
+                    _lastSeekOffset = position;
+                    _lastSeekOffsetSeqNum++;
                 }
             })
+
             ffmpeg.on("progress", ({ progress, time }) => {
-                message.innerText = `transcoding: ${progress * 100} %`;
+                if (no_output) {
+                    message.innerText = `transcoding: ${progress * 100} %`;
+                } else {
+                    message.innerText = `download: ${progress * 100} %`;
+                }
             });
             message.innerText = "Downloading FFmpeg, please wait a few minutes"
             await ffmpeg.load({
                 coreURL: "/assets/core/package/dist/umd/ffmpeg-core.js",
             });
+
+            await ffmpeg.writeFile('input.m3u8', swM3u8Content)
+            if (no_output) {
+                await ffmpeg.writeFile('no_output', "")
+            } else {
+                await ffmpeg.writeFile('_mdat_size.bin', _mdat_size)
+            }
+            try {
+                await ffmpeg.exec(['-allowed_extensions', 'ALL', '-i', 'input.m3u8', '-c', 'copy', 'output.mp4']);
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        async function transcode() {
+            files = []
+            const message = document.getElementById('message');
             let globalId = 0;
-            const files = []
-            const urlTrans = (url) => {
+            const urlTrans = function (url) {
                 console.log(url)
                 const filename = (globalId++) + url.split('/').pop();
                 files.push({
@@ -116,29 +231,9 @@
                 })
                 return './' + filename;
             }
-
-            let m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
-            let swM3u8Content = transferToSwM3u8(m3u8Data.data, m3u8Url, m3u8Data.m3u8Id, urlTrans)
-            await ffmpeg.writeFile('input.m3u8', swM3u8Content)
-
-            try {
-                await ffmpeg.exec(['-allowed_extensions', 'ALL', '-i', 'input.m3u8', '-c', 'copy', 'output.mp4']);
-            } catch (e) {
-                console.error(e);
-            }
-
-            setTimeout(async () => {
-                for (let i = 0; i < files.length; i++) {
-                    // message.innerText = `loading data: ${parseInt((i + 1) / files.length * 100)} %`;
-                    let item = files[i];
-                    try {
-                        await ffmpeg.writeFile(item.name, await fetchFile(item.url));
-                    } catch (e) {
-                        console.error(e);
-                    }
-                }
-            }, 1);
-
+            m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
+            swM3u8Content = transferToSwM3u8(m3u8Data.data, m3u8Url, m3u8Data.m3u8Id, urlTrans)
+            ffmpegExec(true, swM3u8Content);
 
         }
     </script>
