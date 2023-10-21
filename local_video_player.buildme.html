@@ -9,7 +9,6 @@
     <link rel="StyleSheet" href="./local_page.css" type="text/css" />
     <script src="./assets/ffmpeg/package/dist/umd/ffmpeg.js"></script>
     <script src="./assets/util/package/dist/umd/index.js"></script>
-    <script src="./StreamSaver.js/StreamSaver.js"></script>
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -20,8 +19,11 @@
         <div id="videoTitle" class="video-title"></div>
         <video playsinline controls id="hlsVideo">
         </video>
-        <button class="button" onclick="transcode()">Download as file(experimental)</button>
+        <button class="button" onclick="transcode()">Export as file(experimental)</button>
+        <p id="fsAlertMsg" style="color: brown;display: none;">File System API is not supported in your browser, too
+            large video may not be able to export.</p>
         <p id="message"></p>
+
     </div>
     <script>
         const language = '{$language$}'
@@ -34,7 +36,7 @@
         }, 1000);
         async function playM3u8(url) {
 
-            let m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
+            m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
             document.querySelector("#videoTitle").innerText = m3u8Data.title;
             console.log(m3u8Data.data)
             let swM3u8Content = transferToSwM3u8(m3u8Data.data, url, m3u8Data.m3u8Id)
@@ -69,136 +71,122 @@
     <script>
         const { fetchFile } = FFmpegUtil;
         const { FFmpeg } = FFmpegWASM;
+        const fallback = (window.showDirectoryPicker == undefined);
+        if (fallback) {
+            document.querySelector("#fsAlertMsg").style.display = ""
+        }
+        let writable;
+        async function getDownloadFileHanlder(filename) {
+            if (fallback) {
+                return;
+            }
+            filename = sanitizeFilename(filename)
+            // Request permission for a directory from the user
+            window.showDirectoryPicker().then(handle => {
+                return handle.getFileHandle(filename, { create: true });
+            }).then(f => {
+                return f.createWritable()
+            }).then(w => {
+                writable = w;
+            })
+        }
+
+        async function writeFileWithSeek(position, data) {
+            const writeParams = {
+                type: 'write',
+                position: position, // This is where in the file you want to seek to
+                data: data,         // The data you want to write
+            };
+            await writable.write(writeParams);
+        }
         let ffmpeg = null;
         let files = []
-        let _mdat_size = undefined
+
         let swM3u8Content
         let m3u8Data
-        const streamSaver = window.streamSaver
-        let fileStream
-        let fileWriter
 
-        let outputArray = []
         async function onCompleted() {
-            writeLastOutputChunk();
-            fileWriter.close()
+            if (!fallback) {
+                await writable.close();
+            } else {
+                const data = await ffmpeg.readFile('output.mp4');
+                const blob = new Blob([data.buffer], { type: 'video/mp4' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${m3u8Data.title}.mp4`;
+                a.click();
+            }
+
             ffmpeg.terminate()
         }
 
+        let seqNum = 0;
 
+        let lastOutputEndPosition = 0;
+        let lastOutputSeqNum = 0;
+
+        let lastSeekOffset = -1;
+        let lastSeekOffsetSeqNum = 0;
         let nextOutputChunkId = 0;
-        let lastOutputChunk = undefined;
-        let lastOutputChunkOffset = 0;
-        let _lastSeekOffset = -1;
-        let lastOutputName = ""
-        async function writeLastOutputChunk() {
-            if (lastOutputChunk == undefined) {
-                return;
-            }
-            fileWriter.write(lastOutputChunk)
-        }
-        async function ffmpegExec(no_output, swM3u8Content) {
-
+        async function ffmpegExec(swM3u8Content) {
+            seqNum = 0;
             nextOutputChunkId = 0;
-            lastOutputChunk = undefined;
-            lastOutputChunkOffset = 0;
-            _lastSeekOffset = -1;
-            _lastSeekOffsetSeqNum = 0;
+            lastOutputEndPosition = 0;
+            lastOutputSeqNum = 0;
+            lastSeekOffset = -1;
+            lastSeekOffsetSeqNum = 0;
             seekused = {}
-            if (!no_output) {
-                fileStream = streamSaver.createWriteStream(`${m3u8Data.title}.mp4`, {
-                    writableStrategy: undefined,
-                    readableStrategy: undefined
-                })
-                fileWriter = fileStream.getWriter()
-            }
-            outputArray = []
+
             ffmpeg = new FFmpeg();
             const message = document.getElementById('message');
 
             ffmpeg.on("log", async ({ message }) => {
                 console.log(message);
+                const thisSeqNum = seqNum++;
 
                 if (message.startsWith('Close file: ')) {
                     const filename = message.split('Close file: ')[1].split(' successfully.')[0];
                     if (!filename.startsWith('output')) {
                         await ffmpeg.deleteFile(filename)
                     } else {
-                        if (no_output) {
-                            _mdat_size = await ffmpeg.readFile("_mdat_size.bin")
-                            setTimeout(() => {
-                                ffmpeg.terminate();
-                                ffmpegExec(false, swM3u8Content);
-                            }, 1);
-                        } else {
-                            setTimeout(() => {
-                                onCompleted();
-                            }, 1000);
-                        }
+                        setTimeout(() => {
+                            onCompleted();
+                        }, 1000);
                     }
                 } else if (message.startsWith('Waiting for file ')) {
                     const filename = message.split('Waiting for file ')[1].split(' to be created...')[0];
                     if (filename.startsWith('_wait_output')) {
+                        while (`_wait_output${nextOutputChunkId}.mp4` != filename) {
+                            await new Promise(r => setTimeout(r, 10));
+                        }
                         ffmpeg.writeFile(filename, '')
                     } else {
                         const item = files.find(item => "./" + item.name == filename);
                         await ffmpeg.writeFile(item.name, await fetchFile(item.url));
                     }
                 } else if (message.startsWith('Write chunk output file: ')) {
-                    let lastSeekOffset = _lastSeekOffset;
-                    const lastSeekOffsetSeqNum = _lastSeekOffsetSeqNum
                     const filename = message.split('Write chunk output file: ')[1].split(';')[0];
+                    const currentPosition = (lastSeekOffsetSeqNum > lastOutputSeqNum && lastSeekOffsetSeqNum < thisSeqNum) ? lastSeekOffset : lastOutputEndPosition
+
                     while (`output${nextOutputChunkId}.mp4` != filename) {
-                        await new Promise(r => setTimeout(r, 100));
+                        await new Promise(r => setTimeout(r, 10));
                     }
                     const outputChunk = await ffmpeg.readFile(filename);
-                    if (lastSeekOffset != -1) {
-                        if (lastSeekOffset > lastOutputChunkOffset + lastOutputChunk.length) {
-                            lastSeekOffset = lastOutputChunkOffset + lastOutputChunk.length
-                        }
-                        if (seekused[lastSeekOffsetSeqNum]) {
-                            lastSeekOffset = seekused[lastSeekOffsetSeqNum] + lastOutputChunkOffset;
-                        }
-                        if (lastSeekOffset < lastOutputChunkOffset || lastSeekOffset > lastOutputChunkOffset + lastOutputChunk.length) {
-                            console.error("error offset: ", lastSeekOffset, lastOutputChunkOffset, lastOutputChunk);
-                        } else {
-                            const chunkOffset = lastSeekOffset - lastOutputChunkOffset;
-                            if (chunkOffset == lastOutputChunk.length) {
-                                let combinedData = new Uint8Array(outputChunk.length + lastOutputChunk.length);
-                                combinedData.set(lastOutputChunk);
-                                lastOutputChunk = combinedData;
-                            }
-                            lastOutputChunk.set(outputChunk, chunkOffset);
-
-                            console.error("chunk offset: ", chunkOffset);
-
-                            seekused[lastSeekOffsetSeqNum] = chunkOffset + outputChunk.length;
-                        }
-                        nextOutputChunkId++;
-                        return;
-                    }
-                    await writeLastOutputChunk();
-                    if (lastOutputChunk) {
-                        lastOutputChunkOffset += lastOutputChunk.length
-                    }
-                    lastOutputName = filename;
-                    lastOutputChunk = outputChunk;
-                    // fileWriter.write(outputChunk)
+                    writeFileWithSeek(currentPosition, outputChunk);
+                    lastOutputEndPosition = currentPosition + outputChunk.length;
+                    lastOutputSeqNum = thisSeqNum;
                     await ffmpeg.deleteFile(filename)
                     nextOutputChunkId++;
                 } else if (message.startsWith('file_seek file: output.mp4; ')) {
                     const position = parseInt(message.split('file_seek file: output.mp4; ')[1].split(';')[0]);
-                    _lastSeekOffset = position;
-                    _lastSeekOffsetSeqNum++;
+                    lastSeekOffset = position;
+                    lastSeekOffsetSeqNum = thisSeqNum;
                 }
             })
 
             ffmpeg.on("progress", ({ progress, time }) => {
-                if (no_output) {
-                    message.innerText = `transcoding: ${progress * 100} %`;
-                } else {
-                    message.innerText = `download: ${progress * 100} %`;
-                }
+                message.innerText = `Downloading: ${progress * 100} %`;
             });
             message.innerText = "Downloading FFmpeg, please wait a few minutes"
             await ffmpeg.load({
@@ -206,19 +194,34 @@
             });
 
             await ffmpeg.writeFile('input.m3u8', swM3u8Content)
-            if (no_output) {
-                await ffmpeg.writeFile('no_output', "")
-            } else {
-                await ffmpeg.writeFile('_mdat_size.bin', _mdat_size)
-            }
+            setTimeout(async () => {
+                const batch_size = 10;
+                for (let i = 0; i < files.length; i += batch_size) {
+                    const tasks = []
+                    for (let j = i; j < files.length && j < i + batch_size; j++) {
+                        const item = files[j];
+                        tasks.push(fetchFile(item.url).then(data => ffmpeg.writeFile(item.name, data)))
+                    }
+                    await Promise.all(tasks);
+                }
+            }, 1);
             try {
+                if (fallback) {
+                    await ffmpeg.writeFile('full_output', '');
+                }
                 await ffmpeg.exec(['-allowed_extensions', 'ALL', '-i', 'input.m3u8', '-c', 'copy', 'output.mp4']);
+
             } catch (e) {
                 console.error(e);
             }
         }
 
         async function transcode() {
+            writable = undefined
+            await getDownloadFileHanlder(`${m3u8Data.title}.mp4`)
+            while (writable == undefined && !fallback) {
+                await new Promise(r => setTimeout(r, 100));
+            }
             files = []
             const message = document.getElementById('message');
             let globalId = 0;
@@ -231,10 +234,24 @@
                 })
                 return './' + filename;
             }
-            m3u8Data = await readFromIndexedDB('m3u8s', m3u8Key);
             swM3u8Content = transferToSwM3u8(m3u8Data.data, m3u8Url, m3u8Data.m3u8Id, urlTrans)
-            ffmpegExec(true, swM3u8Content);
+            ffmpegExec(swM3u8Content);
+        }
 
+        function sanitizeFilename(input) {
+            const INVALID_CHARACTERS = /[\/\\:?"<>|*]/g;
+            let sanitized = input.replace(INVALID_CHARACTERS, '_');
+            sanitized = sanitized.trim();
+            const INVALID_FILENAMES = /^(con|prn|aux|nul|com[0-9]|lpt[0-9])$/i;
+            if (INVALID_FILENAMES.test(sanitized)) {
+                sanitized = '_' + sanitized + '_';
+            }
+            const MAX_FILENAME_LENGTH = 255;
+            if (sanitized.length > MAX_FILENAME_LENGTH) {
+                sanitized = sanitized.substring(0, MAX_FILENAME_LENGTH);
+            }
+
+            return sanitized;
         }
     </script>
 </body>
