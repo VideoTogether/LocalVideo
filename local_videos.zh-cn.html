@@ -113,8 +113,10 @@
             list.refresh(container, generateConfig(searchData));
         }
         window.addEventListener('resize', onSearch)
-
-        loadData()
+        
+        setTimeout(() => {
+            loadData()
+        }, 500);
 
         async function loadData() {
             await new Promise(r => setTimeout(r, 500));

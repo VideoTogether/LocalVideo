@@ -20,8 +20,7 @@
         <video playsinline controls id="hlsVideo">
         </video>
         <button class="button" onclick="transcode()">Export as file(experimental)</button>
-        <p id="fsAlertMsg" style="color: brown;display: none;">File System API is not supported in your browser, too
-            large video may not be able to export.</p>
+        <p id="fsAlertMsg" style="color: brown;display: none;">File System API is not supported in your browser, large video may not be able to export.</p>
         <p id="message"></p>
 
     </div>
@@ -76,7 +75,7 @@
             fallback = (window.showDirectoryPicker == undefined);
             if (fallback) {
                 document.querySelector("#fsAlertMsg").style.display = ""
-            }else{
+            } else {
                 document.querySelector("#fsAlertMsg").style.display = "none"
             }
         }, 100);
@@ -191,9 +190,9 @@
             })
 
             ffmpeg.on("progress", ({ progress, time }) => {
-                message.innerText = `Downloading: ${progress * 100} %`;
+                message.innerText = `Downloading, do not close page: ${progress * 100} %`;
             });
-            message.innerText = "Downloading FFmpeg, please wait a few minutes"
+            message.innerText = "Downloading FFmpeg, please wait a few minutes."
             await ffmpeg.load({
                 coreURL: "/assets/core/package/dist/umd/ffmpeg-core.js",
             });

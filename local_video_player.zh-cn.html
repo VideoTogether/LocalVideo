@@ -19,9 +19,8 @@
         <div id="videoTitle" class="video-title"></div>
         <video playsinline controls id="hlsVideo">
         </video>
-        <button class="button" onclick="transcode()">Export as file(experimental)</button>
-        <p id="fsAlertMsg" style="color: brown;display: none;">File System API is not supported in your browser, too
-            large video may not be able to export.</p>
+        <button class="button" onclick="transcode()">导出视频文件(实验性)</button>
+        <p id="fsAlertMsg" style="color: brown;display: none;">你使用的浏览器不支持 File System API, 太大的视频可能会导出失败。</p>
         <p id="message"></p>
 
     </div>
@@ -76,7 +75,7 @@
             fallback = (window.showDirectoryPicker == undefined);
             if (fallback) {
                 document.querySelector("#fsAlertMsg").style.display = ""
-            }else{
+            } else {
                 document.querySelector("#fsAlertMsg").style.display = "none"
             }
         }, 100);
@@ -191,9 +190,9 @@
             })
 
             ffmpeg.on("progress", ({ progress, time }) => {
-                message.innerText = `Downloading: ${progress * 100} %`;
+                message.innerText = `下载中,不要关闭页面: ${progress * 100} %`;
             });
-            message.innerText = "Downloading FFmpeg, please wait a few minutes"
+            message.innerText = "正在下载FFmpeg, 请等待几分钟"
             await ffmpeg.load({
                 coreURL: "/assets/core/package/dist/umd/ffmpeg-core.js",
             });
