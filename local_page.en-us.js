@@ -49,7 +49,10 @@ function updateM3U8KeyPaths(m3u8Content, m3u8Url, m3u8Id, urlTrans) {
             }
             // Add the /rootfolder/ prefix to the URI
             const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
-            let newURI = new URL('/fetch-indexeddb-future/' + m3u8IdHead + (new URL(uri, m3u8Url)).href, window.location).href
+            try {
+                uri = (new URL(uri, m3u8Url)).href
+            } catch { }
+            let newURI = new URL('/fetch-indexeddb-future/' + m3u8IdHead + uri, window.location).href
             if (urlTrans) {
                 newURI = urlTrans(newURI);
             }
@@ -72,8 +75,9 @@ function transferToSwM3u8(m3u8Content, m3u8Url, m3u8Id, urlTrans) {
             if (line == "") {
                 return line;
             }
-            console.log(line, m3u8Url, (new URL(line, m3u8Url)).href)
-            line = (new URL(line, m3u8Url)).href
+            try {
+                line = (new URL(line, m3u8Url)).href
+            } catch { }
             const m3u8IdHead = `-m3u8Id-${m3u8Id}-end-`
             line = new URL("/fetch-indexeddb-videos/" + m3u8IdHead + line, window.location).href
             if (urlTrans) {

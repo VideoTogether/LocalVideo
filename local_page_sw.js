@@ -1,4 +1,4 @@
-const cacheName = "PWA-v23";
+const cacheName = "PWA-v24";
 const files = [
     "/download.js",
     "/hls.js@1.2.1",
