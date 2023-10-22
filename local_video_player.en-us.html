@@ -71,10 +71,15 @@
     <script>
         const { fetchFile } = FFmpegUtil;
         const { FFmpeg } = FFmpegWASM;
-        const fallback = (window.showDirectoryPicker == undefined);
-        if (fallback) {
-            document.querySelector("#fsAlertMsg").style.display = ""
-        }
+        let fallback = (window.showDirectoryPicker == undefined);
+        setInterval(() => {
+            fallback = (window.showDirectoryPicker == undefined);
+            if (fallback) {
+                document.querySelector("#fsAlertMsg").style.display = ""
+            }else{
+                document.querySelector("#fsAlertMsg").style.display = "none"
+            }
+        }, 100);
         let writable;
         async function getDownloadFileHanlder(filename) {
             if (fallback) {
