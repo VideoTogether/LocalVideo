@@ -120,7 +120,8 @@
 
         async function loadData() {
             await new Promise(r => setTimeout(r, 500));
-            requestStorageEstimate();
+            // TODO, chrome will compact leveldb for this request
+            // requestStorageEstimate();
             allM3u8Keys = await regexMatchKeys('m3u8s', '.');
             const tmpData = [];
             for (let i in allM3u8Keys) {
